@@ -53,6 +53,8 @@ int message_handler(const char* topic, const char* client_id, const char* payloa
   switch (current_api_version)
   {
   case V1:
+    mosquitto_log_printf(MOSQ_LOG_INFO, "Before entering v1 handle");
+
     rc = v1_message_handler(tt, client_id, payload);
     break;
   }
@@ -63,6 +65,8 @@ int message_handler(const char* topic, const char* client_id, const char* payloa
 
 int v1_topic_type(struct topic_tokens tt)
 {
+  mosquitto_log_printf(MOSQ_LOG_INFO, "Topic type: %s", tt.tokens[1]);
+
   if(strcmp(tt.tokens[1], "evt") == 0)
     return EVENT_TOPIC;
   else if(strcmp(tt.tokens[1], "cmd") == 0)
@@ -104,6 +108,8 @@ int v1_message_handler(struct topic_tokens tt, const char* client_id, const char
     break;
 
   case COMMAND_TOPIC:
+    mosquitto_log_printf(MOSQ_LOG_INFO, "Before entering handle");
+
     command_id = v1_device_command_id(tt);
     rc = v1_device_command_message_handler(tt, payload, command_id);
     break;
@@ -140,10 +146,11 @@ int v1_device_event_message_handler(const char* client_id, const char* payload, 
   if(!sprintf(platform_core_topic, "v1/core/evt"))
     return rc;
 
+  mosquitto_log_printf(MOSQ_LOG_INFO, "Forwarding event to topics: \n\t" RED "core" RESET ":" BLU " %s" RESET "\n\t" RED "ext" RESET ":" BLU " %s" RESET, platform_core_topic, external_app_topic);
   rc = mosquitto_broker_publish_copy(NULL, external_app_topic, strlen(new_payload), new_payload, 0, false, NULL);
   if(rc == MOSQ_ERR_INVAL)
     return rc;
-  
+
   /* Send this message to all core platform instance */
   rc = mosquitto_broker_publish_copy(NULL, platform_core_topic, strlen(new_payload), new_payload, 0, false, NULL);
   if(rc == MOSQ_ERR_INVAL)
@@ -168,6 +175,8 @@ int v1_device_command_message_handler(struct topic_tokens tt, const char* payloa
   int rc = UNHANDLED_ERROR;
   device_client client;
   client_to_command(tt, &client);
+    mosquitto_log_printf(MOSQ_LOG_INFO, "In entering handle");
+
 
   /* client's id which receive command */
   char *client_id = (char*)malloc(sizeof(char) * (device_client_size(client) + 5));
@@ -178,6 +187,9 @@ int v1_device_command_message_handler(struct topic_tokens tt, const char* payloa
   char *topic = (char*)malloc(sizeof(char) * (7 + strlen(command_id) + 1));
   if(!sprintf(topic, "v1/cmd/%s", command_id))
     return rc;
+
+  mosquitto_log_printf(MOSQ_LOG_INFO, "Forwarding event to: \n\t" RED "topic" RESET ":" BLU " %s" RESET "\n\t" RED "client_id" RESET ":" BLU " %s" RESET, topic, client_id);
+
 
   char *new_payload = NULL;
   rc = v1_build_client_command_payload(payload, &new_payload);
